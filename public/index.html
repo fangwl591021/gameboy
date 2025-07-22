@@ -1,0 +1,82 @@
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8"/>
+  <title>轉轉小瑪莉 抽獎</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    /* 簡易排版略 */
+  </style>
+</head>
+<body>
+  <h1>🎰 轉轉小瑪莉</h1>
+  <button id="btnStart" disabled>載入中…</button>
+  <div id="form" style="display:none">
+    <input id="name" placeholder="姓名" /><br/>
+    <input id="phone" placeholder="手機" /><br/>
+    <button id="btnSubmit">送出</button>
+  </div>
+  <p id="msg"></p>
+
+<script>
+const LIFF_ID = '1656871455-A1lEEOaB';            // ← 換成你的 LIFF ID
+const API_URL = '/.netlify/functions/lottery';   // Netlify Function endpoint
+
+let idToken, userId, dispName;
+
+async function init() {
+  await liff.init({ liffId: LIFF_ID });
+  if (!liff.isLoggedIn()) await liff.login();
+  const profile = await liff.getProfile();
+  userId   = profile.userId;
+  dispName = profile.displayName;
+  idToken  = await liff.getIDToken();
+
+  document.getElementById('btnStart').disabled = false;
+  document.getElementById('btnStart').innerText = '開始抽獎';
+}
+init();
+
+// 點「開始抽獎」
+document.getElementById('btnStart').onclick = async () => {
+  document.getElementById('btnStart').style.display = 'none';
+  const res = await fetch(API_URL, {
+    method:'POST',
+    headers: { 'Content-Type':'application/json' },
+    body: JSON.stringify({
+      act:'draw',
+      idToken,                 // 驗證用
+    })
+  });
+  const j = await res.json();
+  if (j.error) {
+    alert('抽獎出錯：'+j.error);
+    return;
+  }
+  // 顯示表單
+  document.getElementById('form').style.display = 'block';
+};
+
+// 點「送出」
+document.getElementById('btnSubmit').onclick = async () => {
+  const name  = document.getElementById('name').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  if (!name || !phone) return alert('請填姓名／手機');
+
+  const res = await fetch(API_URL, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body:JSON.stringify({
+      act:'winner',
+      idToken,
+      name, phone
+    })
+  });
+  const j = await res.json();
+  if (!j.ok) return alert('寫入失敗：'+j.msg);
+  document.getElementById('msg').innerText = `✅ 中獎為 ${j.prize}！`;
+};
+</script>
+</body>
+</html>
