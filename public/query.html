@@ -1,0 +1,57 @@
+<!-- public/query.html -->
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8"/>
+  <title>我的中獎紀錄</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+  <h2>我的中獎紀錄</h2>
+  <div id="list">載入中…</div>
+
+<script>
+const LIFF_ID = '1656871455-A1lEEOaB';
+const API_URL = '/.netlify/functions/lottery';
+
+let idToken, userId;
+async function init(){
+  await liff.init({ liffId: LIFF_ID });
+  if (!liff.isLoggedIn()) await liff.login();
+  const profile = await liff.getProfile();
+  userId  = profile.userId;
+  idToken = await liff.getIDToken();
+  loadRecords();
+}
+init();
+
+async function loadRecords(){
+  const res = await fetch(`${API_URL}?act=query&idToken=${encodeURIComponent(idToken)}`);
+  const j = await res.json();
+  if (!j.ok) return document.getElementById('list').innerText = '讀取失敗';
+  document.getElementById('list').innerHTML = j.records.map(r=>`
+    <div style="border:1px solid #ccc;padding:8px;margin:4px;">
+      <b>${r.prize}</b><br/>
+      中獎時間：${r.winTime}<br/>
+      過期時間：${r.expiryTime}<br/>
+      核銷狀態：${r.redeemed}
+      ${r.redeemed==='否'
+        ?`<button onclick="redeem(${r.recordId})">核銷</button>`
+        :''}
+    </div>
+  `).join('');
+}
+
+async function redeem(recordId){
+  const res = await fetch(API_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ act:'redeem', idToken, recordId })
+  });
+  const j = await res.json();
+  alert(j.ok ? '核銷成功' : '核銷失敗:'+j.msg);
+  loadRecords();
+}
+</script>
+</body>
+</html>
